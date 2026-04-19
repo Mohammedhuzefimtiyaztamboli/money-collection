@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Money Collection V7</title>
+<style>
+body{font-family:Arial;background:#111;color:#eee;padding:20px;margin:0}
+.box{max-width:1200px;margin:auto;background:#1b1b1b;padding:20px;border-radius:14px}
+input,button{padding:10px;border-radius:8px;border:1px solid #444;background:#222;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #444;padding:8px;text-align:center}th{color:#ffd700}
+.section{margin-top:16px;padding:12px;background:#222;border-radius:10px}
+</style></head><body><div class='box'>
+<h1 style='color:#ffd700'>Daily Money Collection V7</h1>
+<div class='grid'>
+<input id='date' type='date'>
+<input id='name' placeholder='Name' onblur='autoOpening()'>
+<input id='opening' type='number' placeholder='Opening'>
+<input id='add' type='number' placeholder='Add'>
+<input id='imps' type='number' placeholder='IMPS'>
+<input id='cash' type='number' placeholder='Cash'>
+<button onclick='saveRow()'>Add / Update</button>
+<input id='search' placeholder='Search History' oninput='render()'>
+<button onclick='pdfDay()'>PDF Daily</button>
+</div>
+<div id='summary' style='margin-top:10px;font-weight:bold'></div>
+<div id='view'></div></div>
+<script>
+let rows=JSON.parse(localStorage.getItem('moneyRowsV7')||'[]'), edit=-1;
+document.getElementById('date').value=new Date().toISOString().split('T')[0];
+function v(id){return document.getElementById(id).value}
+function save(){localStorage.setItem('moneyRowsV7',JSON.stringify(rows))}
+
+function fmtDate(s){
+ if(!s) return '';
+ let p=s.split('-');
+ if(p.length===3) return p[2]+'-'+p[1]+'-'+p[0];
+ return s;
+}
+
+
+function autoOpening(){
+ let nm=v('name').toLowerCase().trim();
+ let arr=rows.filter(r=>r.name.toLowerCase()===nm);
+ if(arr.length){
+   document.getElementById('opening').value = arr[arr.length-1].pending || 0;
+ } else {
+   document.getElementById('opening').value = 0;
+ }
+}
+
+function saveRow(){
+ let r={date:v('date'),name:v('name'),opening:+v('opening')||0,add:+v('add')||0,imps:+v('imps')||0,cash:+v('cash')||0};
+ r.pending=r.opening+r.add-r.imps-r.cash;
+ if(edit>-1){rows[edit]=r;edit=-1;} else rows.push(r);
+ save(); clearF(); render();
+}
+function clearF(){['name','opening','add','imps','cash'].forEach(x=>document.getElementById(x).value='')}
+function editRow(i){let r=rows[i]; edit=i; ['date','name','opening','add','imps','cash'].forEach(k=>document.getElementById(k).value=r[k]);}
+function delRow(i){rows.splice(i,1); save(); render();}
+function render(){
+ let q=v('search').toLowerCase(), wrap=document.getElementById('view'); wrap.innerHTML='';
+ let data=rows.filter(r=>!q || r.name.toLowerCase().includes(q));
+ let groups={}; data.forEach(r=>{if(!groups[r.date])groups[r.date]=[]; groups[r.date].push(r);});
+ Object.keys(groups).sort().reverse().forEach(dt=>{
+  let arr=groups[dt];
+  let h=`<div class='section'><b style='color:#ffd700'>${fmtDate(dt)}</b><table><tr><th>SR</th><th>Name</th><th>Opening</th><th>Add</th><th>IMPS</th><th>Cash</th><th>Pending</th><th>Action</th></tr>`;
+  arr.forEach(r=>{
+    let i=rows.indexOf(r);
+    h+=`<tr><td>${arr.indexOf(r)+1}</td><td>${r.name}</td><td>${r.opening}</td><td>${r.add}</td><td>${r.imps}</td><td>${r.cash}</td><td>${r.pending}</td><td><button onclick='editRow(${i})'>Edit</button> <button onclick='delRow(${i})'>Delete</button></td></tr>`;
+  });
+  h+='</table></div>'; wrap.innerHTML+=h;
+ });
+ monthly();
+}
+function monthly(){
+ let q=v('search').toLowerCase();
+ if(!q){document.getElementById('summary').innerText=''; return;}
+ let arr=rows.filter(r=>r.name.toLowerCase().includes(q));
+ let add=0,cash=0,pending=0;
+ arr.forEach(r=>{add+=r.add; cash+=r.cash+r.imps; pending=r.pending;});
+ document.getElementById('summary').innerText=`History for ${q} | Total Add: ${add} | Total Received: ${cash} | Latest Pending: ${pending}`;
+}
+function pdfDay(){window.print();}
+render();
+</script></body></html>
